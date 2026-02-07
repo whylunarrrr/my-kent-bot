@@ -1,83 +1,64 @@
 import telebot
 from groq import Groq
-import os
-import threading
-import base64
+import os, threading, base64
 from flask import Flask
 
-# 1. ЗАГРУЗКА НАСТРОЕК
+# 1. Настройки
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
-
-# 2. ИНИЦИАЛИЗАЦИЯ
 bot = telebot.TeleBot(TOKEN)
 client = Groq(api_key=GROQ_KEY)
 chats_history = {}
+MY_BRIEF = "Ты — Кент, реальный бро. Стиль: неформальный, на 'ты', с юмором. Ты видишь фото и болтаешь."
 
-MY_BRIEF = "Ты — Кент, реальный бро. Стиль: неформальный, на 'ты', с юмором. Ты умеешь видеть фото и болтать по душам."
-
-# 3. ВЕБ-СЕРВЕР (ЧТОБЫ RENDER НЕ СПАЛ)
+# 2. Веб-сервер
 app = Flask(__name__)
 @app.route('/')
-def health(): return "Кент в здании!", 200
+def health(): return "OK", 200
 
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-# 4. ФУНКЦИЯ ДЛЯ ОБРАБОТКИ КАРТИНКИ
-def encode_image(image_bytes):
-    return base64.b64encode(image_bytes).decode('utf-8')
-
-# 5. ОБРАБОТКА ФОТО
+# 3. Фото
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     try:
-        # Получаем фото в лучшем качестве
-        file_id = message.photo[-1].file_id
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        base64_img = encode_image(downloaded_file)
-
-        # Запрос к нейронке со зрение
-        response = client.chat.completions.create(
+        file_info = bot.get_file(message.photo[-1].file_id)
+        img_bytes = bot.download_file(file_info.file_path)
+        base64_img = base64.b64encode(img_bytes).decode('utf-8')
+        
+        # Упрощенная структура запроса
+        msg_content =
+        
+        res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
-            messages=
-            }]
+            messages=[{"role": "user", "content": msg_content}]
         )
-        bot.reply_to(message, response.choices[0].message.content)
+        bot.reply_to(message, res.choices[0].message.content)
     except Exception as e:
-        print(f"Ошибка фото: {e}")
-        bot.reply_to(message, "Брат, чет глаза замылились, не разберу...")
+        bot.reply_to(message, "Брат, зрение подвело...")
 
-# 6. ОБРАБОТКА ТЕКСТА
+# 4. Текст
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
-    user_id = message.chat.id
-    if user_id not in chats_history:
-        chats_history[user_id] = [{"role": "system", "content": MY_BRIEF}]
-
-    # Добавляем сообщение юзера
-    chats_history[user_id].append({"role": "user", "content": message.text})
-
-    # Обрезка истории (храним системный промпт + последние 8 сообщений)
-    if len(chats_history[user_id]) > 10:
-        chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
-
+    uid = message.chat.id
+    if uid not in chats_history:
+        chats_history[uid] = [{"role": "system", "content": MY_BRIEF}]
+    
+    chats_history[uid].append({"role": "user", "content": message.text})
+    
+    # Супер-простая обрезка истории
+    if len(chats_history[uid]) > 10:
+        chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-8:]
+    
     try:
-        completion = client.chat.completions.create(
+        ans = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=chats_history[user_id]
-        )
-        answer = completion.choices[0].message.content
-        chats_history[user_id].append({"role": "assistant", "content": answer})
-        bot.send_message(user_id, answer)
-    except Exception as e:
-        print(f"Ошибка текста: {e}")
-        bot.send_message(user_id, "Брат, чет я подвис. Повтори-ка!")
+            messages=chats_history[uid]
+        ).choices[0].message.content
+        
+        chats_history[uid].append({"role": "assistant", "content": ans})
+        bot.send_message(uid, ans)
+    except:
+        bot.send_message(uid, "Подвис, бро. Еще раз!")
 
-# 7. ЗАПУСК
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-    print(">>> Кент вышел на связь!")
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))).start()
     bot.infinity_polling()
