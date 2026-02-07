@@ -6,7 +6,7 @@ import time
 import base64
 from flask import Flask
 
-# Данные из Render
+# Данные из настроек Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
@@ -54,7 +54,7 @@ def chat_handler(message):
     
     chats_history[user_id].append({"role": "user", "content": message.text})
     
-    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ЛИШНИХ СКОБОК)
+    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ОШИБОК)
     if len(chats_history[user_id]) > 10:
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
