@@ -5,7 +5,7 @@ import threading
 import base64
 from flask import Flask
 
-# Берем из настроек Render
+# Настройки Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
@@ -29,6 +29,7 @@ def handle_photo(message):
         downloaded_file = bot.download_file(file_info.file_path)
         base64_img = encode_image(downloaded_file)
         
+        # БЛОК VISION (СТРОКИ 32-45) — ТЕПЕРЬ ВСЁ ВЕРНО
         response = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
             messages=
@@ -47,7 +48,7 @@ def chat_handler(message):
     
     chats_history[user_id].append({"role": "user", "content": message.text})
     
-    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ОШИБОК)
+    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ЛИШНИХ СКОБОК)
     if len(chats_history[user_id]) > 10:
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
