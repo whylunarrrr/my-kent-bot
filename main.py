@@ -21,7 +21,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 chats_history = {}
 
 # --- ВЕБ-СЕРВЕР ДЛЯ RENDER (ЧТОБЫ НЕ СПАЛ) ---
-app = Flask(_name_)
+app = Flask(__name__)
 @app.route('/')
 def health_check(): return "Кент в деле!", 200
 
@@ -77,6 +77,6 @@ def start_bot():
             print(f"Критическая ошибка: {e}. Рестарт через 5 сек...")
             time.sleep(5)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     start_bot()
