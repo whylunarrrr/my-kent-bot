@@ -54,7 +54,7 @@ def chat_handler(message):
     
     chats_history[user_id].append({"role": "user", "content": message.text})
     
-    # ИСПРАВЛЕННАЯ СТРОКА 42 (ОБРЕЗКА ИСТОРИИ)
+    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ЛИШНИХ СКОБОК)
     if len(chats_history[user_id]) > 10:
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
