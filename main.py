@@ -6,7 +6,7 @@ import time
 import base64
 from flask import Flask
 
-# Данные из Render
+# Берем ключи из настроек Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
@@ -16,6 +16,7 @@ client = Groq(api_key=GROQ_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 chats_history = {}
 
+# Веб-сервер для UptimeRobot
 app = Flask(__name__)
 @app.route('/')
 def health(): return "Кент видит всё!", 200
@@ -24,6 +25,7 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
+# ОБРАБОТКА ФОТО
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     temp_path = f"temp_{message.chat.id}_{message.message_id}.jpg"
@@ -46,6 +48,7 @@ def handle_photo(message):
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
 
+# ОБРАБОТКА ТЕКСТА
 @bot.message_handler(func=lambda m: True)
 def chat_handler(message):
     user_id = message.chat.id
@@ -54,7 +57,7 @@ def chat_handler(message):
     
     chats_history[user_id].append({"role": "user", "content": message.text})
     
-    # ИСПРАВЛЕННЫЙ БЛОК ОБРЕЗКИ ИСТОРИИ
+    # ИСПРАВЛЕННАЯ ОБРЕЗКА ИСТОРИИ (БЕЗ ЛИШНИХ СКОБОК!)
     if len(chats_history[user_id]) > 10:
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
