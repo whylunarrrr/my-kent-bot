@@ -5,11 +5,11 @@ import threading
 import base64
 from flask import Flask
 
-# Берем из настроек Render
+# Настройки Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-MY_BRIEF = "Ты — Кент, реальный бро. Стиль: неформальный, на 'ты', с юмором. Если скинули фото — опиши, что видишь, или ответь по контексту."
+MY_BRIEF = "Ты — Кент, реальный бро. Стиль: неформальный, на 'ты', с юмором. Если скинули фото — опиши, что видишь."
 
 client = Groq(api_key=GROQ_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
@@ -22,7 +22,6 @@ def health(): return "Кент видит всё!", 200
 def encode_image(image_bytes):
     return base64.b64encode(image_bytes).decode('utf-8')
 
-# Обработка фото (Vision)
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     try:
@@ -40,7 +39,6 @@ def handle_photo(message):
         print(f"Error photo: {e}")
         bot.reply_to(message, "Брат, чет со зрением плохо...")
 
-# Обработка текста
 @bot.message_handler(func=lambda m: True)
 def chat_handler(message):
     user_id = message.chat.id
@@ -50,6 +48,7 @@ def chat_handler(message):
     chats_history[user_id].append({"role": "user", "content": message.text})
     
     if len(chats_history[user_id]) > 10:
+        # Упрощенная обрезка истории без лишних скобок
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
     try:
