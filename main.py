@@ -22,13 +22,12 @@ def handle_photo(message):
     try:
         file_info = bot.get_file(message.photo[-1].file_id)
         img_bytes = bot.download_file(file_info.file_path)
-        base64_img = base64.encodebytes(img_bytes).decode('utf-8')
+        base64_img = base64.b64encode(img_bytes).decode('utf-8')
         
-        # УПРОЩЕННЫЙ ЗАПРОС (БЕЗ ПЕРЕМЕННЫХ)
         res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
-            messages=}
-            ]
+            messages=
+            }]
         )
         bot.reply_to(message, res.choices[0].message.content)
     except Exception as e:
@@ -63,4 +62,3 @@ def handle_text(message):
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))).start()
     bot.infinity_polling()
-
