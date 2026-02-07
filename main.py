@@ -6,8 +6,8 @@ import time
 from flask import Flask
 
 # --- ТВОИ ДАННЫЕ (ЗАМЕНИ НА НОВЫЕ!) ---
-TELEGRAM_TOKEN = "8330753343:AAFCkTRbiBxN5INIMwE7RISd6PhYIY9aR9A"
-GROQ_API_KEY = "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"
+TELEGRAM_TOKEN = "TELEGRAM_TOKEN"
+GROQ_API_KEY = "GROQ_API_KEY"
 
 MY_BRIEF = """
 Ты — Кент, реальный бро и универсальный собеседник. 
