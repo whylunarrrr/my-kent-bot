@@ -21,7 +21,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 chats_history = {}
 
 # --- ВЕБ-СЕРВЕР ДЛЯ RENDER (ЧТОБЫ НЕ СПАЛ) ---
-app = Flask(name)
+app = Flask(_name_)
 @app.route('/')
 def health_check(): return "Кент в деле!", 200
 
