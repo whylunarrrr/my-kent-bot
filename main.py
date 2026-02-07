@@ -1,40 +1,65 @@
 import telebot
 from groq import Groq
-import os  # ЭТО ОБЯЗАТЕЛЬНО!
+import os
 import threading
 import time
+import base64
 from flask import Flask
 
-# ПРАВИЛЬНЫЙ СПОСОБ БРАТЬ КЛЮЧИ ИЗ RENDER:
+# Берем данные из настроек Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-MY_BRIEF = """
-Ты — Кент, реальный бро и универсальный собеседник. 
-Стиль: неформальный, на "ты", с юмором. 
-ПРАВИЛА: Не навязывай темы новеллы или авто, отвечай по контексту. Будь умным и не ломай слова.
-"""
+MY_BRIEF = "Ты — Кент, реальный бро. Стиль: неформальный, на 'ты', с юмором. Если скинули фото — опиши, что видишь, или ответь по контексту."
 
-# Инициализация
 client = Groq(api_key=GROQ_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 chats_history = {}
 
-# --- ВЕБ-СЕРВЕР ДЛЯ RENDER (ЧТОБЫ НЕ СПАЛ) ---
+# Веб-сервер для UptimeRobot
 app = Flask(__name__)
 @app.route('/')
-def health_check(): return "Кент в деле!", 200
+def health(): return "Кент видит всё!", 200
 
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
-# --- ЛОГИКА БОТА ---
-@bot.message_handler(commands=['reset'])
-def reset_handler(message):
-    chats_history[message.chat.id] = [{"role": "system", "content": MY_BRIEF}]
-    bot.reply_to(message, "Брат, я всё забыл! Начинаем с чистого листа.")
+# ОБРАБОТКА ФОТО
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    temp_path = f"temp_{message.chat.id}_{message.message_id}.jpg"
+    try:
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        with open(temp_path, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        
+        base_4_image = encode_image(temp_path)
+        
+        # Используем Vision модель для картинок
+        response = client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=
+                }
+            ]
+        )
+        
+        answer = response.choices[0].message.content
+        if answer:
+            bot.reply_to(message, answer)
+        else:
+            bot.reply_to(message, "Брат, вижу, но слов нет...")
+            
+    except Exception as e:
+        print(f"Ошибка фото: {e}")
+        bot.reply_to(message, "Брат, чет со зрением плохо, не разберу...")
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
+# ОБРАБОТКА ТЕКСТА
 @bot.message_handler(func=lambda m: True)
 def chat_handler(message):
     user_id = message.chat.id
@@ -43,40 +68,28 @@ def chat_handler(message):
     
     chats_history[user_id].append({"role": "user", "content": message.text})
     
-    # ПРАВИЛЬНАЯ обрезка истории (оставляем системный промпт + 8 последних сообщений)
+    # Исправленная обрезка истории (системный промпт + 8 последних)
     if len(chats_history[user_id]) > 10:
         chats_history[user_id] = [chats_history[user_id][0]] + chats_history[user_id][-8:]
     
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=chats_history[user_id],
-            temperature=0.7,
-            max_tokens=2000,
+            messages=chats_history[user_id]
         )
-        answer = completion.choices[0].message.content # Исправил индекс тут
-        chats_history[user_id].append({"role": "assistant", "content": answer})
-        
-        try:
-            bot.send_message(user_id, answer, parse_mode="Markdown")
-        except:
+        answer = completion.choices[0].message.content
+        if answer:
+            chats_history[user_id].append({"role": "assistant", "content": answer})
             bot.send_message(user_id, answer)
-            
     except Exception as e:
-        print(f"Ошибка в чате: {e}")
-        bot.send_message(user_id, "Брат, чёт я подвис. Дай мне секунду.")
+        print(f"Ошибка текста: {e}")
+        bot.send_message(user_id, "Брат, чет я подвис. Дай мне секунду.")
 
-# --- УСИЛЕННЫЙ ЗАПУСК ---
-def start_bot():
-    print(">>> Кент выходит на связь...")
-    while True:
-        try:
-            # infinity_polling сам пытается переподключиться при обрыве сети
-            bot.infinity_polling(timeout=10, long_polling_timeout=5)
-        except Exception as e:
-            print(f"Критическая ошибка: {e}. Рестарт через 5 сек...")
-            time.sleep(5)
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
-    start_bot()
+    print("Кент на связи и всё видит!")
+    bot.infinity_polling(timeout=20, long_polling_timeout=10)
