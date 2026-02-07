@@ -22,9 +22,9 @@ def handle_photo(message):
     try:
         file_info = bot.get_file(message.photo[-1].file_id)
         img_bytes = bot.download_file(file_info.file_path)
-        base64_img = base64.b64encode(img_bytes).decode('utf-8')
+        base64_img = base64.encodebytes(img_bytes).decode('utf-8')
         
-        # Исправленный формат для Groq Vision
+        # УПРОЩЕННЫЙ ЗАПРОС (БЕЗ ПЕРЕМЕННЫХ)
         res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
             messages=
@@ -32,7 +32,7 @@ def handle_photo(message):
         )
         bot.reply_to(message, res.choices[0].message.content)
     except Exception as e:
-        print(f"Photo Error: {e}")
+        print(f"Error photo: {e}")
         bot.reply_to(message, "Брат, зрение подвело...")
 
 # 4. Обработка ТЕКСТА
@@ -44,23 +44,23 @@ def handle_text(message):
     
     chats_history[uid].append({"role": "user", "content": message.text})
     
-    # ПРАВИЛЬНАЯ обрезка истории (системный промпт + хвост)
+    # Супер-простая обрезка истории
     if len(chats_history[uid]) > 10:
         chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-8:]
     
     try:
-        completion = client.chat.completions.create(
+        ans = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=chats_history[uid]
-        )
-        ans = completion.choices[0].message.content
+        ).choices[0].message.content
+        
         chats_history[uid].append({"role": "assistant", "content": ans})
         bot.send_message(uid, ans)
     except Exception as e:
-        print(f"Text Error: {e}")
-        bot.send_message(uid, "Подвис, бро. Еще раз!")
+        print(f"Error text: {e}")
+        bot.send_message(uid, "Подвис, бро.")
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))).start()
-    print(">>> Кент на связи!")
     bot.infinity_polling()
+
