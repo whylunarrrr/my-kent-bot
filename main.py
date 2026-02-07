@@ -77,6 +77,6 @@ def start_bot():
             print(f"Критическая ошибка: {e}. Рестарт через 5 сек...")
             time.sleep(5)
 
-if name == "main":
+if _name_ == "_main_":
     threading.Thread(target=run_flask).start()
     start_bot()
