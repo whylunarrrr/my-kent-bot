@@ -1,13 +1,13 @@
 import telebot
 from groq import Groq
-import os
+import os  # ЭТО ОБЯЗАТЕЛЬНО!
 import threading
 import time
 from flask import Flask
 
-# --- ТВОИ ДАННЫЕ (ЗАМЕНИ НА НОВЫЕ!) ---
-TELEGRAM_TOKEN = "TELEGRAM_TOKEN"
-GROQ_API_KEY = "GROQ_API_KEY"
+# ПРАВИЛЬНЫЙ СПОСОБ БРАТЬ КЛЮЧИ ИЗ RENDER:
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 MY_BRIEF = """
 Ты — Кент, реальный бро и универсальный собеседник. 
