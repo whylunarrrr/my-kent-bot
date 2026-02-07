@@ -27,8 +27,8 @@ def handle_photo(message):
         # УПРОЩЕННЫЙ ЗАПРОС (БЕЗ ПЕРЕМЕННЫХ)
         res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
-            messages=
-            }]
+            messages=}
+            ]
         )
         bot.reply_to(message, res.choices[0].message.content)
     except Exception as e:
