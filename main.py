@@ -1,21 +1,38 @@
 import telebot
 from groq import Groq
 import os, threading, base64
-from flask import Flask
+from flask import Flask, request
 
 # 1. Настройки
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
+# Render предоставляет этот URL автоматически
+WEBHOOK_URL = os.environ.get("RENDER_EXTERNAL_URL")
+
 bot = telebot.TeleBot(TOKEN)
 client = Groq(api_key=GROQ_KEY)
 chats_history = {}
 MY_BRIEF = "Ты — Кент, бро. Стиль: неформальный, на 'ты', с юмором. Ты видишь фото и болтаешь."
 
 app = Flask(__name__)
-@app.route('/')
-def health(): return "OK", 200
 
-# 3. Исправленная обработка ФОТО
+# Маршрут для обработки вебхуков от Telegram
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '!', 200
+    else:
+        return 'Bad Request', 403
+
+# Маршрут для проверки работоспособности (Health Check)
+@app.route('/')
+def health():
+    return "OK", 200
+
+# 3. Исправленная обработка ФОТО (осталась прежней)
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     try:
@@ -23,18 +40,11 @@ def handle_photo(message):
         img_bytes = bot.download_file(file_info.file_path)
         base64_img = base64.b64encode(img_bytes).decode('utf-8')
         
-        # Берем текст из подписи к фото, если он есть
         user_text = message.caption if message.caption else "Что скажешь по этому поводу, бро?"
 
         res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": f"{MY_BRIEF}\n\n{user_text}"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                    ]
+            messages=
                 }
             ]
         )
@@ -43,7 +53,7 @@ def handle_photo(message):
         print(f"Error photo: {e}")
         bot.reply_to(message, "Брат, зрение подвело, чёт мутно там всё...")
 
-# 4. Обработка ТЕКСТА
+# 4. Обработка ТЕКСТА (осталась прежней)
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
     uid = message.chat.id
@@ -68,7 +78,11 @@ def handle_text(message):
         bot.send_message(uid, "Подвис, бро. Мозги закипели.")
 
 if __name__ == "__main__":
-    # Порт для Render
+    # Устанавливаем вебхук при старте приложения
+    if WEBHOOK_URL:
+        bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
+    
+    # Запуск Flask-приложения (оно слушает порт)
     port = int(os.environ.get("PORT", 8080))
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False)).start()
-    bot.infinity_polling()
+    # use_reloader=False - важно для предотвращения двойного запуска
+    app.run(host='0.0.0.0', port=port, use_reloader=False)
