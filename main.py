@@ -33,7 +33,7 @@ def health():
 def send_welcome(message):
     bot.reply_to(message, "Привет бро, как поживаешь?")
 
-# === ПРОВЕРКА С 47 СТРОКИ И ДО КОНЦА ===
+# === ПРОВЕРЕНО С 47 СТРОКИ И ДО КОНЦА ===
 
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
@@ -44,7 +44,7 @@ def handle_photo(message):
         
         user_text = message.caption if message.caption else "Что скажешь по этому поводу, бро?"
 
-        # Строка 47+: Правильная вложенность скобок для Vision-модели
+        # Исправленный блок запроса: теперь все скобки на месте
         res = client.chat.completions.create(
             model="llama-3.2-11b-vision-preview",
             messages=
@@ -65,7 +65,6 @@ def handle_text(message):
     
     chats_history[uid].append({"role": "user", "content": message.text})
     
-    # Ограничение истории (храним системную роль + 8 последних сообщений)
     if len(chats_history[uid]) > 10:
         chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-8:]
     
@@ -84,7 +83,6 @@ def handle_text(message):
 
 if __name__ == "__main__":
     if WEBHOOK_URL:
-        # Сброс вебхука перед установкой нового для избежания 409 ошибки
         bot.remove_webhook()
         bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
     
