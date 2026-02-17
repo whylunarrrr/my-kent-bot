@@ -24,6 +24,14 @@ MY_BRIEF = "Ты — Кент, бро. Стиль: информальный, н�
 
 app = Flask(__name__)
 
+# Функция для безопасной отправки длинных сообщений
+def send_safe_message(chat_id, text):
+    if len(text) > 4000:
+        for x in range(0, len(text), 4000):
+            bot.send_message(chat_id, text[x:x+4000])
+    else:
+        bot.send_message(chat_id, text)
+
 @app.route('/' + TOKEN, methods=['POST'])
 def webhook():
     if request.method == 'POST' and request.headers.get('content-type') == 'application/json':
@@ -66,13 +74,8 @@ def handle_photo(message):
                 }
             ]
         )
-        # БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОТВЕТА
-        if hasattr(completion, 'choices'):
-            ans = completion.choices[0].message.content
-        else:
-            ans = str(completion)
-            
-        bot.reply_to(message, ans)
+        ans = completion.choices[0].message.content
+        send_safe_message(uid, ans)
     except Exception as e:
         print(f"!!! IMAGE ERROR: {e}", flush=True)
         bot.reply_to(message, "Бро, с глазами беда, не вижу фото...")
@@ -85,6 +88,7 @@ def handle_text(message):
     
     chats_history[uid].append({"role": "user", "content": message.text})
     
+    # Корректная обрезка истории (оставляем системный промпт + последние 9 сообщений)
     if len(chats_history[uid]) > 10:
         chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-9:]
 
@@ -94,14 +98,9 @@ def handle_text(message):
             messages=chats_history[uid]
         )
         
-        # БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОТВЕТА (FIX ТВОЕЙ ОШИБКИ)
-        if hasattr(completion, 'choices'):
-            ans = completion.choices[0].message.content
-        else:
-            ans = str(completion)
-
+        ans = completion.choices[0].message.content
         chats_history[uid].append({"role": "assistant", "content": ans})
-        bot.send_message(uid, ans)
+        send_safe_message(uid, ans)
     except Exception as e:
         print(f"!!! TEXT ERROR: {e}", flush=True)
         bot.send_message(uid, "Мозги закипели, бро...")
