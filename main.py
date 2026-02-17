@@ -6,17 +6,14 @@ import sys
 import logging
 from flask import Flask, request
 
-# Принудительно выводим все логи в консоль Render
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-# Данные из переменных окружения Render
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
 OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 
 bot = telebot.TeleBot(TOKEN)
 
-# Настройка клиента OpenRouter
 client = OpenAI(
   base_url="https://openrouter.ai",
   api_key=OPENROUTER_KEY,
@@ -57,7 +54,6 @@ def handle_photo(message):
         
         user_text = message.caption if message.caption else "Что на фото?"
         
-        # Попробуем Gemini 2.0 Flash (бесплатная и мощная)
         completion = client.chat.completions.create(
             model="google/gemini-2.0-flash-exp:free",
             messages=[
@@ -70,10 +66,15 @@ def handle_photo(message):
                 }
             ]
         )
-        ans = completion.choices.message.content
+        # БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОТВЕТА
+        if hasattr(completion, 'choices'):
+            ans = completion.choices[0].message.content
+        else:
+            ans = str(completion)
+            
         bot.reply_to(message, ans)
     except Exception as e:
-        print(f"!!! IMAGE ERROR: {e}", flush=True) # Ошибка появится в логах Render
+        print(f"!!! IMAGE ERROR: {e}", flush=True)
         bot.reply_to(message, "Бро, с глазами беда, не вижу фото...")
 
 @bot.message_handler(func=lambda m: True)
@@ -84,23 +85,26 @@ def handle_text(message):
     
     chats_history[uid].append({"role": "user", "content": message.text})
     
-    # Ограничиваем историю до 10 сообщений
     if len(chats_history[uid]) > 10:
-        # Сохраняем системный промпт и последние 9 сообщений
         chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-9:]
 
     try:
-        # Используем ту же модель для текста
         completion = client.chat.completions.create(
             model="google/gemini-2.0-flash-exp:free",
             messages=chats_history[uid]
         )
-        ans = completion.choices.message.content
+        
+        # БЕЗОПАСНОЕ ПОЛУЧЕНИЕ ОТВЕТА (FIX ТВОЕЙ ОШИБКИ)
+        if hasattr(completion, 'choices'):
+            ans = completion.choices[0].message.content
+        else:
+            ans = str(completion)
+
         chats_history[uid].append({"role": "assistant", "content": ans})
         bot.send_message(uid, ans)
     except Exception as e:
-        print(f"!!! TEXT ERROR: {e}", flush=True) # Ошибка появится в логах Render
-        bot.send_message(uid, "Мозги закипели, бро... Глянь логи.")
+        print(f"!!! TEXT ERROR: {e}", flush=True)
+        bot.send_message(uid, "Мозги закипели, бро...")
 
 if __name__ == "__main__":
     bot.remove_webhook()
