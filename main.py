@@ -1,12 +1,17 @@
 import telebot
-from openai import OpenAI  # Заменили groq на openai
+from openai import OpenAI
 import os
 import base64
+import sys
+import logging
 from flask import Flask, request
 
-# Данные берем из переменных окружения (как у тебя и было)
+# Принудительно выводим все логи в консоль Render
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+
+# Данные из переменных окружения Render
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
-OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY') # Создай эту переменную в настройках (в Render или где ты хостишься)
+OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
 WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 
 bot = telebot.TeleBot(TOKEN)
@@ -52,7 +57,7 @@ def handle_photo(message):
         
         user_text = message.caption if message.caption else "Что на фото?"
         
-        # Используем бесплатную модель, которая умеет видеть (Gemini 2.0 Flash Exp)
+        # Попробуем Gemini 2.0 Flash (бесплатная и мощная)
         completion = client.chat.completions.create(
             model="google/gemini-2.0-flash-exp:free",
             messages=[
@@ -65,10 +70,10 @@ def handle_photo(message):
                 }
             ]
         )
-        ans = completion.choices[0].message.content
+        ans = completion.choices.message.content
         bot.reply_to(message, ans)
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"!!! IMAGE ERROR: {e}", flush=True) # Ошибка появится в логах Render
         bot.reply_to(message, "Бро, с глазами беда, не вижу фото...")
 
 @bot.message_handler(func=lambda m: True)
@@ -79,22 +84,23 @@ def handle_text(message):
     
     chats_history[uid].append({"role": "user", "content": message.text})
     
-    # Ограничиваем историю, чтоб не раздувалась
+    # Ограничиваем историю до 10 сообщений
     if len(chats_history[uid]) > 10:
+        # Сохраняем системный промпт и последние 9 сообщений
         chats_history[uid] = [chats_history[uid][0]] + chats_history[uid][-9:]
 
     try:
-        # Для текста тоже ставим бесплатную модель
+        # Используем ту же модель для текста
         completion = client.chat.completions.create(
             model="google/gemini-2.0-flash-exp:free",
             messages=chats_history[uid]
         )
-        ans = completion.choices[0].message.content
+        ans = completion.choices.message.content
         chats_history[uid].append({"role": "assistant", "content": ans})
         bot.send_message(uid, ans)
     except Exception as e:
-        print(f"Error: {e}")
-        bot.send_message(uid, "Мозги закипели, бро...")
+        print(f"!!! TEXT ERROR: {e}", flush=True) # Ошибка появится в логах Render
+        bot.send_message(uid, "Мозги закипели, бро... Глянь логи.")
 
 if __name__ == "__main__":
     bot.remove_webhook()
