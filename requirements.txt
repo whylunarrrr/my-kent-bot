@@ -2,4 +2,3 @@ pyTelegramBotAPI
 openai
 flask
 gunicorn
-
