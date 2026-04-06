@@ -8,18 +8,28 @@ from flask import Flask, request
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-# Берем переменные из окружения Render
+# Данные из настроек Render
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
 OPENROUTER_KEY = os.environ.get('OPENROUTER_API_KEY')
-WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL') # Убедись, что в Render эта переменная есть
+WEBHOOK_URL = os.environ.get('RENDER_EXTERNAL_URL')
 
 bot = telebot.TeleBot(TOKEN)
 client = OpenAI(base_url="https://openrouter.ai", api_key=OPENROUTER_KEY)
 
-chats_history = {}
-MY_BRIEF = "Ты — Кент, свой бро. Шаришь в тачках, технике, сленге. Отвечай кратко и по делу."
+# Инструкция для ИИ (чтобы он был "в теме")
+MY_BRIEF = (
+    "Ты — Кент, свой бро. Твой создатель - whyhunarm. "
+    "Общайся на 'ты', используй сленг, шарь в тачках (JDM, немцы, дрифт), технике и жизни. "
+    "Если пишут 'Лавр', 'Марк', 'Слива' — ты понимаешь, что это тачки. "
+    "Отвечай кратко, по делу и с юмором."
+)
 
+chats_history = {}
 app = Flask(__name__)
+
+# СРАЗУ ставим вебхук, чтобы Telegram знал куда слать сообщения
+bot.remove_webhook()
+bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
 
 def send_safe_message(chat_id, text):
     if not text: return
@@ -31,16 +41,12 @@ def send_safe_message(chat_id, text):
 
 @app.route('/' + TOKEN, methods=['POST'])
 def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return '', 200
-    return '', 403
+    update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
+    bot.process_new_updates([update])
+    return 'OK', 200
 
 @app.route('/')
-def health():
-    return "I am alive", 200
+def health(): return "OK", 200
 
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
@@ -49,10 +55,9 @@ def handle_photo(message):
         file_info = bot.get_file(message.photo[-1].file_id)
         img_bytes = bot.download_file(file_info.file_path)
         base64_img = base64.b64encode(img_bytes).decode('utf-8')
+        user_text = message.caption if message.caption else "Что на фото, бро?"
         
-        user_text = message.caption if message.caption else "Что тут на фото?"
-        
-        completion = client.chat.create( # У OpenRouter иногда метод сокращен
+        completion = client.chat.completions.create(
             model="google/gemini-2.0-flash-exp:free",
             messages=[
                 {"role": "system", "content": MY_BRIEF},
@@ -65,8 +70,8 @@ def handle_photo(message):
         ans = completion.choices[0].message.content
         send_safe_message(uid, ans)
     except Exception as e:
-        logging.error(f"PHOTO ERROR: {e}")
-        bot.reply_to(message, "Бро, чет не вижу нифига...")
+        logging.error(f"IMAGE ERROR: {e}")
+        bot.reply_to(message, "Бро, чет зрение подводит...")
 
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
@@ -88,11 +93,7 @@ def handle_text(message):
         send_safe_message(uid, ans)
     except Exception as e:
         logging.error(f"TEXT ERROR: {e}")
-        bot.send_message(uid, "Мозги кипят...")
+        bot.send_message(uid, "Мозги закипели...")
 
 if __name__ == "__main__":
-    # Важно для Render: сначала удаляем старый хук, потом ставим новый
-    bot.remove_webhook()
-    bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
-    # Render сам подставит PORT
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
